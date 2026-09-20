@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.UserMapper">
+    <resultMap id="userResultMap" type="com.openSupports.demo.Domain.Model.User">
+        <id property="id" column="id"/>
+        <result property="email" column="email"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="salt" column="salt"/>
+        <result property="state" column="state"/>
+        <result property="signUpTime" column="sign_up_time"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+        <result property="rememberToken" column="remember_token"/>
+        <result property="rememberTokenExpires" column="remember_token_expires"/>
+        <result property="csrfUserid" column="csrf_userid"/>
+        <result property="csrfToken" column="csrf_token"/>
+        <result property="ticketCount" column="ticket_count"/>
+    </resultMap>
+    <select id="findByEmail" resultMap="userResultMap">
+        SELECT u.*, COALESCE(COUNT(t.id),0) as ticket_count FROM users u LEFT JOIN tickets t ON t.author_id = u.id WHERE u.email = #{email} GROUP BY u.id
+    </select>
+    <select id="findById" resultMap="userResultMap">
+        SELECT * FROM users WHERE id = #{id}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (email, password_hash, salt, state, csrf_userid, csrf_token, sign_up_time) VALUES (#{email}, #{passwordHash}, #{salt}, #{state}, #{csrfUserid}, #{csrfToken}, datetime('now'))
+    </insert>
+    <update id="updatePassword">
+        UPDATE users SET password_hash = #{passwordHash}, salt = #{salt}, last_login_time = datetime('now') WHERE id = #{id}
+    </update>
+    <update id="changeEmail">
+        UPDATE users SET email = #{email} WHERE id = #{id} AND email != #{excludeEmail}
+    </update>
+    <update id="setState">UPDATE users SET state = #{state} WHERE id = #{id}</update>
+    <delete id="deleteById">DELETE FROM users WHERE id = #{id}</delete>
+    <select id="searchByKeyword" resultMap="userResultMap">
+        SELECT u.*, COUNT(t.id) as ticket_count FROM users u LEFT JOIN tickets t ON t.author_id = u.id WHERE 1=1
+        <if test="emailKeyword != null and emailKeyword != ''">AND u.email LIKE '%' || #{emailKeyword} || '%'</if>
+        <if test="registerDateFrom != null">AND u.sign_up_time >= #{registerDateFrom}</if>
+        <if test="registerDateTo != null">AND u.sign_up_time &lt;= #{registerDateTo}</if>
+        GROUP BY u.id ORDER BY ${sortBy} DESC LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+    <select id="countSearchResults" resultType="int">
+        SELECT COUNT(*) FROM users WHERE 1=1
+        <if test="emailKeyword != null and emailKeyword != ''">AND email LIKE '%' || #{emailKeyword} || '%'</if>
+        <if test="registerDateFrom != null">AND sign_up_time >= #{registerDateFrom}</if>
+        <if test="registerDateTo != null">AND sign_up_time &lt;= #{registerDateTo}</if>
+    </select>
+    <select id="findAll" resultMap="userResultMap">
+        SELECT u.*, COUNT(t.id) as ticket_count FROM users u LEFT JOIN tickets t ON t.author_id = u.id GROUP BY u.id ORDER BY u.sign_up_time DESC LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+    <select id="countAll" resultType="int">SELECT COUNT(*) FROM users</select>
+</mapper>

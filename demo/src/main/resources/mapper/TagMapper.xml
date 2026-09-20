@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.TagMapper">
+    <resultMap id="tagResultMap" type="com.openSupports.demo.Domain.Model.Tag">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+    <select id="findByName" resultMap="tagResultMap">SELECT * FROM tags WHERE name = #{name}</select>
+    <select id="findById" resultMap="tagResultMap">SELECT * FROM tags WHERE id = #{id}</select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">INSERT INTO tags (name, created_at) VALUES (#{name}, datetime('now'))</insert>
+    <delete id="deleteById">DELETE FROM tags WHERE id = #{id}</delete>
+    <delete id="deleteByTicketId">DELETE FROM ticket_tags WHERE ticket_id = #{ticketId}</delete>
+    <select id="findByTicketId" resultMap="tagResultMap">
+        SELECT t.* FROM tags t JOIN ticket_tags tt ON tt.tag_id = t.id WHERE tt.ticket_id = #{ticketId}
+    </select>
+    <select id="existsInTicket" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM tags t JOIN ticket_tags tt ON tt.tag_id = t.id 
+        WHERE tt.ticket_id = #{ticketId} AND LOWER(t.name) = LOWER(#{tagName})
+    </select>
+    <insert id="attachTagToTicket">INSERT OR IGNORE INTO ticket_tags (ticket_id, tag_id) VALUES (#{ticketId}, #{tagId})</insert>
+    <delete id="detachTagFromTicket">DELETE FROM ticket_tags WHERE ticket_id = #{ticketId} AND tag_id = #{tagId}</delete>
+</mapper>

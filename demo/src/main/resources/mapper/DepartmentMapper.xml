@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.DepartmentMapper">
+    <resultMap id="deptResultMap" type="com.openSupports.demo.Domain.Model.Department">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="isDefault" column="is_default"/>
+        <result property="isPrivate" column="is_private"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="ticketCount" column="ticket_count"/>
+        <result property="staffCount" column="staff_count"/>
+    </resultMap>
+    <select id="findById" resultMap="deptResultMap">
+        SELECT d.id, d.name, d.is_default, d.is_private, d.created_at,
+               (SELECT COUNT(*) FROM tickets t WHERE t.department_id = d.id) as ticket_count,
+               (SELECT COUNT(*) FROM staff s WHERE s.department_id = d.id) as staff_count
+        FROM departments d WHERE d.id = #{id}
+    </select>
+    <select id="findByName" resultMap="deptResultMap">
+        SELECT * FROM departments WHERE name = #{name}
+    </select>
+    <select id="existsByName" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM departments WHERE name = #{name}
+    </select>
+    <select id="findAll" resultMap="deptResultMap">
+        SELECT d.id, d.name, d.is_default, d.is_private, d.created_at,
+               (SELECT COUNT(*) FROM tickets t WHERE t.department_id = d.id) as ticket_count,
+               (SELECT COUNT(*) FROM staff s WHERE s.department_id = d.id) as staff_count
+        FROM departments d ORDER BY d.id
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO departments (name, is_default, is_private, created_at) VALUES (#{name}, #{isDefault}, #{isPrivate}, datetime('now'))
+    </insert>
+    <update id="updateName">UPDATE departments SET name = #{newName} WHERE id = #{id}</update>
+    <delete id="deleteById">DELETE FROM departments WHERE id = #{id}</delete>
+    <select id="getDefault" resultMap="deptResultMap">
+        SELECT * FROM departments WHERE is_default = 1
+    </select>
+    <update id="migrateStaff">UPDATE staff SET department_id = #{targetDeptId} WHERE department_id = #{sourceDeptId}</update>
+    <update id="migrateTickets">UPDATE tickets SET department_id = #{targetDeptId}, assignee_id = NULL WHERE department_id = #{sourceDeptId}</update>
+    <update id="unAssignTicketsByStaffDept">
+        UPDATE tickets SET assignee_id = NULL WHERE assignee_id IN (SELECT id FROM staff WHERE department_id = #{sourceDeptId})
+    </update>
+    <update id="markDefault">UPDATE departments SET is_default = 1 WHERE id = #{id}</update>
+</mapper>

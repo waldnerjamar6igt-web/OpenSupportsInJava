@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.ArticleMapper">
+    <resultMap id="articleResultMap" type="com.openSupports.demo.Domain.Model.Article">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="folderId" column="folder_id"/>
+        <result property="folderName" column="folder_name"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+    <select id="getById" resultMap="articleResultMap">
+        SELECT a.*, f.name AS folder_name FROM knowledge_articles a LEFT JOIN knowledge_folders f ON f.id = a.folder_id WHERE a.id = #{id}
+    </select>
+    <select id="getByFolderId" resultMap="articleResultMap">
+        SELECT a.*, f.name AS folder_name FROM knowledge_articles a LEFT JOIN knowledge_folders f ON f.id = a.folder_id WHERE a.folder_id = #{folderId}
+        <if test="!includePrivate">AND (f.is_private = 0 OR f.id IS NULL)</if>
+        ORDER BY a.updated_at DESC
+    </select>
+    <insert id="createAndSave" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO knowledge_articles (title, content, folder_id, created_at, updated_at) VALUES (#{title}, #{content}, #{folderId}, datetime('now'), datetime('now'))
+    </insert>
+    <update id="update">
+        UPDATE knowledge_articles SET title = #{title}, content = #{content}, folder_id = #{folderId}, updated_at = datetime('now') WHERE id = #{id}
+    </update>
+    <delete id="deleteById">DELETE FROM knowledge_articles WHERE id = #{id}</delete>
+</mapper>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.CommentMapper">
+    <resultMap id="commentResultMap" type="com.openSupports.demo.Domain.Model.Comment">
+        <id property="id" column="id"/>
+        <result property="ticketId" column="ticket_id"/>
+        <result property="authorId" column="author_id"/>
+        <result property="authorType" column="author_type"/>
+        <result property="content" column="content"/>
+        <result property="isPrivate" column="is_private"/>
+        <result property="isEdited" column="is_edited"/>
+        <result property="editedBy" column="edited_by"/>
+        <result property="editedAt" column="edited_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="authorName" column="author_name"/>
+    </resultMap>
+    <select id="findById" resultMap="commentResultMap">
+        SELECT c.*, u.email AS author_name FROM ticket_comments c LEFT JOIN users u ON u.id = c.author_id WHERE c.id = #{id}
+    </select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ticket_comments (ticket_id, author_id, author_type, content, is_private, created_at, updated_at)
+        VALUES (#{ticketId}, #{authorId}, #{authorType}, #{content}, #{isPrivate}, datetime('now'), datetime('now'))
+    </insert>
+    <update id="updateContent">
+        UPDATE ticket_comments SET content = #{content}, is_edited = 1, edited_at = datetime('now'), updated_at = datetime('now') WHERE id = #{id}
+    </update>
+    <select id="findByTicketId" resultMap="commentResultMap">
+        SELECT c.*, u.email AS author_name FROM ticket_comments c LEFT JOIN users u ON u.id = c.author_id WHERE c.ticket_id = #{ticketId} ORDER BY c.created_at
+    </select>
+    <select id="isLatestComment" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM ticket_comments c
+        WHERE c.ticket_id = #{ticketId} AND c.author_id = #{authorId} AND c.id = #{commentId}
+        AND c.id = (SELECT MAX(id) FROM ticket_comments WHERE ticket_id = #{ticketId} AND author_id = #{authorId})
+    </select>
+    <update id="updateEdited">UPDATE ticket_comments SET is_edited = 1, edited_by = #{editedBy}, edited_at = datetime('now') WHERE id = #{commentId}</update>
+</mapper>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.StafaMapper">
+    <resultMap id="staffResultMap" type="com.openSupports.demo.Domain.Model.Staff">
+        <id property="id" column="id"/>
+        <result property="email" column="email"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="salt" column="salt"/>
+        <result property="state" column="staff_state"/>
+        <result property="signUpTime" column="sign_up_time"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+        <result property="level" column="level"/>
+        <result property="departmentId" column="department_id"/>
+        <result property="departmentName" column="dept_name"/>
+        <result property="ticketAssignedCount" column="ticket_assigned_count"/>
+    </resultMap>
+    <select id="findByEmail" resultMap="staffResultMap">
+        SELECT s.id, s.level, s.department_id, s.state AS staff_state, u.email, u.password_hash, u.salt,
+               u.sign_up_time, u.last_login_time, s.remember_token, s.remember_token_expires,
+               s.csrf_userid, s.csrf_token, d.name AS dept_name,
+               COUNT(DISTINCT t.id) AS ticket_assigned_count
+        FROM staff s JOIN users u ON u.id = s.id LEFT JOIN departments d ON d.id = s.department_id
+        LEFT JOIN tickets t ON t.assignee_id = s.id AND t.closed = 0
+        WHERE u.email = #{email} GROUP BY s.id
+    </select>
+    <select id="findById" resultMap="staffResultMap">
+        SELECT s.id, s.level, s.department_id, s.state AS staff_state, u.email, u.password_hash, u.salt,
+               u.sign_up_time, u.last_login_time, s.remember_token, s.remember_token_expires,
+               s.csrf_userid, s.csrf_token, d.name AS dept_name,
+               (SELECT COUNT(*) FROM tickets t WHERE t.assignee_id = s.id AND t.closed = 0) AS ticket_assigned_count
+        FROM staff s JOIN users u ON u.id = s.id LEFT JOIN departments d ON d.id = s.department_id
+        WHERE s.id = #{id}
+    </select>
+    <select id="findByUserId" resultMap="staffResultMap">
+        SELECT s.id, s.level, s.department_id, s.state AS staff_state, u.email, u.sign_up_time,
+               d.name AS dept_name,
+               (SELECT COUNT(*) FROM tickets t WHERE t.assignee_id = s.id AND t.closed = 0) AS ticket_assigned_count
+        FROM staff s JOIN users u ON u.id = s.id LEFT JOIN departments d ON d.id = s.department_id
+        WHERE s.id = #{userId}
+    </select>
+    <insert id="insertStaff" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO staff (id, level, department_id, state, sign_up_time) VALUES (#{id}, #{level}, #{departmentId}, #{state}, datetime('now'))
+    </insert>
+    <update id="updatePassword">UPDATE users SET password_hash = #{passwordHash}, salt = #{salt}, last_login_time = datetime('now') WHERE id = #{id}</update>
+    <update id="changeDepartment">UPDATE staff SET department_id = #{deptId} WHERE id = #{id}</update>
+    <update id="setState">UPDATE staff SET state = #{state} WHERE id = #{id}</update>
+    <delete id="deleteById">DELETE FROM staff WHERE id = #{id}</delete>
+    <select id="searchWithFilters" resultMap="staffResultMap">
+        SELECT s.id, s.level, s.department_id, s.state AS staff_state, u.email, u.sign_up_time, d.name AS dept_name,
+               (SELECT COUNT(*) FROM tickets t WHERE t.assignee_id = s.id AND t.closed = 0) AS ticket_assigned_count
+        FROM staff s JOIN users u ON u.id = s.id LEFT JOIN departments d ON d.id = s.department_id
+        WHERE 1=1
+        <if test="emailKeyword != null and emailKeyword != ''">AND u.email LIKE '%' || #{emailKeyword} || '%'</if>
+        <if test="departmentId != null">AND s.department_id = #{departmentId}</if>
+        <if test="level != null">AND s.level = #{level}</if>
+        <if test="registerDateFrom != null">AND u.sign_up_time >= #{registerDateFrom}</if>
+        <if test="registerDateTo != null">AND u.sign_up_time &lt;= #{registerDateTo}</if>
+        ORDER BY ${sortBy} DESC LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+    <select id="countSearchResults" resultType="int">
+        SELECT COUNT(*) FROM staff s JOIN users u ON u.id = s.id WHERE 1=1
+        <if test="emailKeyword != null and emailKeyword != ''">AND u.email LIKE '%' || #{emailKeyword} || '%'</if>
+        <if test="departmentId != null">AND s.department_id = #{departmentId}</if>
+        <if test="level != null">AND s.level = #{level}</if>
+        <if test="registerDateFrom != null">AND u.sign_up_time >= #{registerDateFrom}</if>
+        <if test="registerDateTo != null">AND u.sign_up_time &lt;= #{registerDateTo}</if>
+    </select>
+    <select id="findAll" resultMap="staffResultMap">
+        SELECT s.id, s.level, s.department_id, s.state AS staff_state, u.email, u.sign_up_time, d.name AS dept_name,
+               (SELECT COUNT(*) FROM tickets t WHERE t.assignee_id = s.id AND t.closed = 0) AS ticket_assigned_count
+        FROM staff s JOIN users u ON u.id = s.id LEFT JOIN departments d ON d.id = s.department_id
+        ORDER BY u.sign_up_time DESC LIMIT #{pageSize} OFFSET #{offset}
+    </select>
+    <select id="countAll" resultType="int">SELECT COUNT(*) FROM staff</select>
+    <select id="existsByEmail" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM users WHERE email = #{email}
+    </select>
+    <update id="unAssignAllTickets">UPDATE tickets SET assignee_id = NULL WHERE assignee_id = #{staffId}</update>
+    <update id="closeAllTickets">UPDATE tickets SET closed = 1, status = 'CLOSED', updated_at = datetime('now') WHERE assignee_id = #{staffId}</update>
+    <update id="updateLevel">UPDATE staff SET level = #{level} WHERE id = #{id}</update>
+</mapper>

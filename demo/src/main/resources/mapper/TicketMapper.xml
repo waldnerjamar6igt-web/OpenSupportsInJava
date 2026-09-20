@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.TicketMapper">
+    <resultMap id="ticketResultMap" type="com.openSupports.demo.Domain.Model.Ticket">
+        <id property="id" column="id"/>
+        <result property="ticketCode" column="ticket_code"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="status" column="status"/>
+        <result property="priority" column="priority"/>
+        <result property="departmentId" column="department_id"/>
+        <result property="departmentName" column="dept_name"/>
+        <result property="authorId" column="author_id"/>
+        <result property="authorEmail" column="author_email"/>
+        <result property="assigneeId" column="assignee_id"/>
+        <result property="assigneeName" column="assignee_name"/>
+        <result property="unreadStaff" column="unread_staff"/>
+        <result property="closed" column="closed"/>
+        <result property="editedTitle" column="edited_title"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="lastActivityAt" column="last_activity_at"/>
+    </resultMap>
+
+    <resultMap id="tagResultMap" type="com.openSupports.demo.Domain.Model.Tag">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="getById" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE t.id = #{ticketId}
+    </select>
+
+    <select id="searchMeSent" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE t.author_id = #{userId} ORDER BY t.last_activity_at DESC LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="searchMyAssigned" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE t.assignee_id = #{staffId} ORDER BY t.last_activity_at DESC LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="searchNewForDept" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE t.department_id = #{deptId} AND t.assignee_id IS NULL AND t.closed = 0
+        ORDER BY t.unread_staff DESC, t.created_at LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="searchAllForDept" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE t.department_id = #{deptId}
+        <if test="titleKeyword != null and titleKeyword != ''">AND t.title LIKE '%' || #{titleKeyword} || '%'</if>
+        <if test="closed != null">AND t.closed = #{closed}</if>
+        ORDER BY t.last_activity_at DESC LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="searchByTitle" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE t.department_id = #{deptId} AND t.title LIKE '%' || #{titleKeyword} || '%'
+        ORDER BY t.last_activity_at DESC LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <insert id="createAndSave" useGeneratedKeys="true" keyProperty="ticket.id">
+        INSERT INTO tickets (ticket_code, title, content, status, priority, department_id, author_id, unread_staff, closed, edited_title, created_at, updated_at, last_activity_at)
+        VALUES (#{code}, #{ticket.title}, #{ticket.content}, 'OPEN', #{ticket.priority}, #{ticket.departmentId}, #{ticket.authorId}, 1, 0, 0, datetime('now'), datetime('now'), datetime('now'))
+    </insert>
+
+    <update id="update">
+        UPDATE tickets SET title = #{title}, content = #{content}, status = #{status}, priority = #{priority},
+            department_id = #{departmentId}, assignee_id = #{assigneeId}, unread_staff = #{unreadStaff},
+            closed = #{closed}, edited_title = #{editedTitle}, updated_at = datetime('now'),
+            last_activity_at = #{lastActivityAt} WHERE id = #{id}
+    </update>
+
+    <update id="save">UPDATE tickets SET updated_at = datetime('now'), last_activity_at = #{lastActivityAt} WHERE id = #{id}</update>
+    <update id="saveBatch">UPDATE tickets SET updated_at = datetime('now') WHERE id IN
+        <foreach collection="tickets" item="t" open="(" separator="," close=")">#{t.id}</foreach>
+    </update>
+
+    <select id="checkTagExists" resultType="boolean">SELECT COUNT(*) > 0 FROM tags WHERE name = #{name}</select>
+
+    <update id="updateUnreadStaff">UPDATE tickets SET unread_staff = 0 WHERE id = #{ticketId}</update>
+    <update id="assignTo">UPDATE tickets SET assignee_id = #{staffId}, updated_at = datetime('now') WHERE id = #{ticketId}</update>
+    <update id="unAssign">UPDATE tickets SET assignee_id = NULL, updated_at = datetime('now') WHERE id = #{ticketId}</update>
+    <update id="closeTicket">UPDATE tickets SET closed = 1, status = 'CLOSED', updated_at = datetime('now') WHERE id = #{ticketId}</update>
+    <update id="reopenTicket">UPDATE tickets SET closed = 0, status = 'REOPENED', assignee_id = NULL, unread_staff = 1, updated_at = datetime('now') WHERE id = #{ticketId}</update>
+    <delete id="deleteById">DELETE FROM tickets WHERE id = #{ticketId}</delete>
+    <update id="changeDepartment">UPDATE tickets SET department_id = #{newDeptId}, assignee_id = NULL, updated_at = datetime('now') WHERE id = #{ticketId}</update>
+    <update id="unAssignTicketsByAuthor">UPDATE tickets SET assignee_id = NULL WHERE author_id = #{authorId}</update>
+    <update id="closeTicketsByAuthor">UPDATE tickets SET closed = 1, status = 'CLOSED', updated_at = datetime('now') WHERE author_id = #{authorId}</update>
+
+    <!-- Tags subqueries -->
+    <insert id="insertTag" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO tags (name, created_at) VALUES (#{name}, datetime('now'))
+    </insert>
+    <insert id="attachTagToTicket">INSERT OR IGNORE INTO ticket_tags (ticket_id, tag_id) VALUES (#{ticketId}, #{tagId})</insert>
+    <select id="findTagByName" resultMap="tagResultMap">SELECT * FROM tags WHERE name = #{name}</select>
+    <select id="findTagById" resultMap="tagResultMap">SELECT * FROM tags WHERE id = #{id}</select>
+    <delete id="detachTagFromTicket">DELETE FROM ticket_tags WHERE ticket_id = #{ticketId} AND tag_id = #{tagId}</delete>
+
+    <!-- Advanced Search -->
+    <select id="advancedSearch" resultMap="ticketResultMap">
+        SELECT t.*, d.name AS dept_name, u.email AS author_email, s.email AS assignee_name
+        FROM tickets t
+        LEFT JOIN departments d ON d.id = t.department_id
+        LEFT JOIN users u ON u.id = t.author_id
+        LEFT JOIN users s ON s.id = t.assignee_id
+        WHERE 1=1
+        <if test="title != null and title != ''">AND t.title LIKE '%' || #{title} || '%'</if>
+        <if test="ticketCode != null and ticketCode != ''">AND t.ticket_code = #{ticketCode}</if>
+        <if test="closed != null">AND t.closed = #{closed}</if>
+        <if test="dateFrom != null">AND t.created_at >= #{dateFrom}</if>
+        <if test="dateTo != null">AND t.created_at &lt;= #{dateTo}</if>
+        <if test="departmentId != null">AND t.department_id = #{departmentId}</if>
+        <if test="authorId != null">AND t.author_id = #{authorId}</if>
+        <if test="ownerId != null">AND t.author_id = #{ownerId}</if>
+        <if test="assigned != null">AND (t.assignee_id IS NOT NULL) = #{assigned}</if>
+        <if test="query != null and query != ''">AND (t.title LIKE '%' || #{query} || '%' OR t.content LIKE '%' || #{query} || '%')</if>
+        ORDER BY ${orderBy} LIMIT #{pageSize} OFFSET ${(page - 1) * pageSize}
+    </select>
+
+    <select id="countAdvancedSearch" resultType="int">
+        SELECT COUNT(*) FROM tickets t
+        WHERE 1=1
+        <if test="title != null and title != ''">AND t.title LIKE '%' || #{title} || '%'</if>
+        <if test="ticketCode != null and ticketCode != ''">AND t.ticket_code = #{ticketCode}</if>
+        <if test="closed != null">AND t.closed = #{closed}</if>
+        <if test="dateFrom != null">AND t.created_at >= #{dateFrom}</if>
+        <if test="dateTo != null">AND t.created_at &lt;= #{dateTo}</if>
+        <if test="departmentId != null">AND t.department_id = #{departmentId}</if>
+        <if test="authorId != null">AND t.author_id = #{authorId}</if>
+        <if test="ownerId != null">AND t.author_id = #{ownerId}</if>
+        <if test="assigned != null">AND (t.assignee_id IS NOT NULL) = #{assigned}</if>
+        <if test="query != null and query != ''">AND (t.title LIKE '%' || #{query} || '%' OR t.content LIKE '%' || #{query} || '%')</if>
+    </select>
+</mapper>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.openSupports.demo.infra.mapper.FolderMapper">
+    <resultMap id="folderResultMap" type="com.openSupports.demo.Domain.Model.Folder">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="isPrivate" column="is_private"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+    <select id="findAllPublic" resultMap="folderResultMap">
+        SELECT * FROM knowledge_folders WHERE is_private = 0 ORDER BY sort_order
+    </select>
+    <select id="findAllIncludingPrivate" resultMap="folderResultMap">
+        SELECT * FROM knowledge_folders ORDER BY sort_order
+    </select>
+    <select id="findById" resultMap="folderResultMap">SELECT * FROM knowledge_folders WHERE id = #{id}</select>
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO knowledge_folders (name, is_private, sort_order, created_at) VALUES (#{name}, #{isPrivate}, #{sortOrder}, datetime('now'))
+    </insert>
+    <update id="updateName">UPDATE knowledge_folders SET name = #{name} WHERE id = #{id}</update>
+    <update id="updateState">UPDATE knowledge_folders SET is_private = #{isPrivate} WHERE id = #{id}</update>
+    <update id="reorder">
+        UPDATE knowledge_folders SET sort_order = CASE id
+        <foreach collection="ids" item="fid" index="idx"> WHEN #{fid} THEN #{idx} </foreach>
+        ELSE sort_order END
+        WHERE id IN <foreach collection="ids" item="fid" open="(" separator="," close=")">#{fid}</foreach>
+    </update>
+    <delete id="remove">DELETE FROM knowledge_folders WHERE id = #{id}</delete>
+    <update id="moveArticlesToNullFolder">UPDATE knowledge_articles SET folder_id = NULL WHERE folder_id = #{folderId}</update>
+</mapper>
